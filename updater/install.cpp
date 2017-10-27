@@ -347,6 +347,68 @@ Value* FormatFn(const char* name, State* state, const std::vector<std::unique_pt
   return nullptr;
 }
 
+// rename(src_name, dst_name)
+//   Renames src_name to dst_name. It automatically creates the necessary directories for dst_name.
+//   Example: rename("system/app/Hangouts/Hangouts.apk", "system/priv-app/Hangouts/Hangouts.apk")
+Value* RenameFn(const char* name, State* state, const std::vector<std::unique_ptr<Expr>>& argv) {
+  if (argv.size() != 2) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() expects 2 args, got %zu", name, argv.size());
+  }
+
+  std::vector<std::string> args;
+  if (!ReadArgs(state, argv, &args)) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() Failed to parse the argument(s)", name);
+  }
+  const std::string& src_name = args[0];
+  const std::string& dst_name = args[1];
+
+  if (src_name.empty()) {
+    return ErrorAbort(state, kArgsParsingFailure, "src_name argument to %s() can't be empty", name);
+  }
+  if (dst_name.empty()) {
+    return ErrorAbort(state, kArgsParsingFailure, "dst_name argument to %s() can't be empty", name);
+  }
+  if (!make_parents(dst_name)) {
+    return ErrorAbort(state, kFileRenameFailure, "Creating parent of %s failed, error %s",
+                      dst_name.c_str(), strerror(errno));
+  } else if (access(dst_name.c_str(), F_OK) == 0 && access(src_name.c_str(), F_OK) != 0) {
+    // File was already moved
+    return StringValue(dst_name);
+  } else if (rename(src_name.c_str(), dst_name.c_str()) != 0) {
+    return ErrorAbort(state, kFileRenameFailure, "Rename of %s to %s failed, error %s",
+                      src_name.c_str(), dst_name.c_str(), strerror(errno));
+  }
+
+  return StringValue(dst_name);
+}
+
+// delete([filename, ...])
+//   Deletes all the filenames listed. Returns the number of files successfully deleted.
+//
+// delete_recursive([dirname, ...])
+//   Recursively deletes dirnames and all their contents. Returns the number of directories
+//   successfully deleted.
+Value* DeleteFn(const char* name, State* state, const std::vector<std::unique_ptr<Expr>>& argv) {
+  std::vector<std::string> paths(argv.size());
+  for (size_t i = 0; i < argv.size(); ++i) {
+    if (!Evaluate(state, argv[i], &paths[i])) {
+      return nullptr;
+    }
+  }
+
+  bool recursive = (strcmp(name, "delete_recursive") == 0);
+
+  int success = 0;
+  for (size_t i = 0; i < argv.size(); ++i) {
+    if ((recursive ? dirUnlinkHierarchy(paths[i].c_str()) : unlink(paths[i].c_str())) == 0) {
+      ++success;
+    }
+  }
+
+  return StringValue(std::to_string(success));
+}
+
+
 Value* ShowProgressFn(const char* name, State* state,
                       const std::vector<std::unique_ptr<Expr>>& argv) {
   if (argv.size() != 2) {
@@ -516,6 +578,43 @@ Value* PackageExtractFileFn(const char* name, State* state,
 
     return new Value(VAL_BLOB, buffer);
   }
+}
+
+// symlink(target, [src1, src2, ...])
+//   Creates all sources as symlinks to target. It unlinks any previously existing src1, src2, etc
+//   before creating symlinks.
+Value* SymlinkFn(const char* name, State* state, const std::vector<std::unique_ptr<Expr>>& argv) {
+  if (argv.size() == 0) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s() expects 1+ args, got %zu", name, argv.size());
+  }
+  std::string target;
+  if (!Evaluate(state, argv[0], &target)) {
+    return nullptr;
+  }
+
+  std::vector<std::string> srcs;
+  if (!ReadArgs(state, argv, &srcs, 1, argv.size() - 1)) {
+    return ErrorAbort(state, kArgsParsingFailure, "%s(): Failed to parse the argument(s)", name);
+  }
+
+  size_t bad = 0;
+  for (const auto& src : srcs) {
+    if (unlink(src.c_str()) == -1 && errno != ENOENT) {
+      PLOG(ERROR) << name << ": failed to remove " << src;
+      ++bad;
+    } else if (!make_parents(src)) {
+      LOG(ERROR) << name << ": failed to symlink " << src << " to " << target
+                 << ": making parents failed";
+      ++bad;
+    } else if (symlink(target.c_str(), src.c_str()) == -1) {
+      PLOG(ERROR) << name << ": failed to symlink " << src << " to " << target;
+      ++bad;
+    }
+  }
+  if (bad != 0) {
+    return ErrorAbort(state, kSymlinkFailure, "%s: Failed to create %zu symlink(s)", name, bad);
+  }
+  return StringValue("t");
 }
 
 struct perm_parsed_args {
@@ -1308,6 +1407,9 @@ void RegisterInstallFunctions() {
   RegisterFunction("set_progress", SetProgressFn);
   RegisterFunction("package_extract_dir", PackageExtractDirFn);
   RegisterFunction("package_extract_file", PackageExtractFileFn);
+  RegisterFunction("delete", DeleteFn);
+  RegisterFunction("delete_recursive", DeleteFn);
+  RegisterFunction("symlink", SymlinkFn);
 
   // Usage:
   //   set_metadata("filename", "key1", "value1", "key2", "value2", ...)
@@ -1332,6 +1434,7 @@ void RegisterInstallFunctions() {
 
   RegisterFunction("read_file", ReadFileFn);
   RegisterFunction("sha1_check", Sha1CheckFn);
+  RegisterFunction("rename", RenameFn);
   RegisterFunction("write_value", WriteValueFn);
 
   RegisterFunction("wipe_cache", WipeCacheFn);
