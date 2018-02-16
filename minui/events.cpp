@@ -20,7 +20,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/epoll.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <errno.h>
@@ -28,6 +27,7 @@
 #include <functional>
 
 #include "minui/minui.h"
+#include "minui/epoll.h"
 
 #define MAX_DEVICES 16
 #define MAX_MISC_FDS 16
