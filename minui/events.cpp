@@ -44,7 +44,7 @@ struct fd_info {
 };
 
 static int g_epoll_fd;
-static epoll_event polledevents[MAX_DEVICES + MAX_MISC_FDS];
+static epoll_event_twrp polledevents[MAX_DEVICES + MAX_MISC_FDS];
 static int npolledevents;
 
 static fd_info ev_fdinfo[MAX_DEVICES + MAX_MISC_FDS];
@@ -93,7 +93,7 @@ int ev_init(ev_callback input_cb) {
         continue;
       }
 
-      epoll_event ev;
+      epoll_event_twrp ev;
       ev.events = EPOLLIN | EPOLLWAKEUP;
       ev.data.ptr = &ev_fdinfo[ev_count];
       if (epoll_ctl(g_epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
@@ -137,7 +137,7 @@ int ev_add_fd(int fd, ev_callback cb) {
     return -1;
   }
 
-  epoll_event ev;
+  epoll_event_twrp ev;
   ev.events = EPOLLIN | EPOLLWAKEUP;
   ev.data.ptr = static_cast<void*>(&ev_fdinfo[ev_count]);
   int ret = epoll_ctl(g_epoll_fd, EPOLL_CTL_ADD, fd, &ev);
