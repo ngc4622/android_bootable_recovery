@@ -41,8 +41,8 @@ ifneq (,$(filter $(PLATFORM_SDK_VERSION), 21 22))
     BOARD_SEPOLICY_UNION += twrp.te
 endif
 
-ifeq ($(CM_PLATFORM_SDK_VERSION),)
-    CM_PLATFORM_SDK_VERSION := 0
+ifeq ($(LINEAGE_PLATFORM_SDK_VERSION),)
+    LINEAGE_PLATFORM_SDK_VERSION := 0
 endif
 
 include $(CLEAR_VARS)
@@ -505,7 +505,7 @@ else
 endif
 endif
 ifeq ($(TARGET_USERIMAGES_USE_F2FS), true)
-ifeq ($(shell test $(CM_PLATFORM_SDK_VERSION) -ge 3; echo $$?),0)
+ifeq ($(shell test $(LINEAGE_PLATFORM_SDK_VERSION) -ge 3; echo $$?),0)
     TWRP_REQUIRED_MODULES += \
         fsck.f2fs \
         mkfs.f2fs
