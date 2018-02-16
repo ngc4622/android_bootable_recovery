@@ -64,7 +64,7 @@ typedef union epoll_data {
   uint64_t u64;
 } epoll_data_t;
 
-struct epoll_event {
+struct epoll_event_twrp {
   uint32_t events;
   epoll_data_t data;
 }
