@@ -32,7 +32,6 @@
 #include <sys/wait.h>
 #include <sys/xattr.h>
 #include <linux/xattr.h>
-#include <inittypes.h>
 #include <time.h>
 #include <unistd.h>
 #include <utime.h>
