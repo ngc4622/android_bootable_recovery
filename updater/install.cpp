@@ -723,7 +723,7 @@ static int do_SetMetadataRecursive(const char* filename, const struct stat *stat
     return ApplyParsedPerms(filename, statptr, recursive_parsed_args);
 }
 
-static Value* SetMetadataFn(const char* name, State* state, int argc, Expr* argv[]) {
+static Value* SetMetadataFn(const char* name, State* state, const std::vector<std::unique_ptr<Expr>>& argv) {
     int i;
     int bad = 0;
     static int nwarnings = 0;
