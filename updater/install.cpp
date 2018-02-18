@@ -733,7 +733,7 @@ static Value* SetMetadataFn(const char* name, State* state, int argc, Expr* argv
     bool recursive = (strcmp(name, "set_metadata_recursive") == 0);
 
     if ((argc % 2) != 1) {
-        return ErrorAbort(state, "%s() expects an odd number of arguments, got %d",
+        return ErrorAbort(state, kArgsParsingFailure, "%s() expects an odd number of arguments, got %d",
                           name, argc);
     }
 
@@ -741,7 +741,7 @@ static Value* SetMetadataFn(const char* name, State* state, int argc, Expr* argv
     if (args == NULL) return NULL;
 
     if (lstat(args[0], &sb) == -1) {
-        result = ErrorAbort(state, "%s: Error on lstat of \"%s\": %s", name, args[0], strerror(errno));
+        result = ErrorAbort(state, kFileGetPropFailure, "%s: Error on lstat of \"%s\": %s", name, args[0], strerror(errno));
         goto done;
     }
 
@@ -766,7 +766,7 @@ done:
     }
 
     if (bad > 0) {
-        return ErrorAbort(state, "%s: some changes failed", name);
+        return ErrorAbort(state, kSetMetadataFailure, "%s: some changes failed", name);
     }
 
     return StringValue(strdup(""));
