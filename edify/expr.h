@@ -142,7 +142,7 @@ bool ReadValueArgs(State* state, const std::vector<std::unique_ptr<Expr>>& argv,
 // Use printf-style arguments to compose an error message to put into
 // *state.  Returns NULL.
 Value* ErrorAbort(State* state, const char* format, ...)
-    __attribute__((format(printf, 2, 3), deprecated));
+    __attribute__((format(printf, 2, 3)));
 
 // ErrorAbort has an optional (but recommended) argument 'cause_code'. If the cause code
 // is set, it will be logged into last_install and provides reason of OTA failures.
