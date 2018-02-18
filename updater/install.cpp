@@ -530,101 +530,101 @@ struct perm_parsed_args {
     bool has_dmode;
     mode_t dmode;
     bool has_selabel;
-    char* selabel;
+    const char* selabel;
     bool has_capabilities;
     uint64_t capabilities;
 };
 
-static struct perm_parsed_args ParsePermArgs(int argc, char** args) {
-    int i;
+static struct perm_parsed_args ParsePermArgs(State *state, const std::vector<std::string>& args) {
+    size_t i;
     struct perm_parsed_args parsed;
     int bad = 0;
     static int max_warnings = 20;
 
     memset(&parsed, 0, sizeof(parsed));
 
-    for (i = 1; i < argc; i += 2) {
-        if (strcmp("uid", args[i]) == 0) {
+    for (i = 1; i < args.size(); i += 2) {
+        if (args[i] == "uid") {
             int64_t uid;
-            if (sscanf(args[i+1], "%" SCNd64, &uid) == 1) {
+            if (sscanf(args[i+1].c_str(), "%" SCNd64, &uid) == 1) {
                 parsed.uid = uid;
                 parsed.has_uid = true;
             } else {
-                printf("ParsePermArgs: invalid UID \"%s\"\n", args[i + 1]);
+                uiPrintf(state, "ParsePermArgs: invalid UID \"%s\"\n", args[i + 1].c_str());
                 bad++;
             }
             continue;
         }
-        if (strcmp("gid", args[i]) == 0) {
+        if (args[i] == "gid") {
             int64_t gid;
-            if (sscanf(args[i+1], "%" SCNd64, &gid) == 1) {
+            if (sscanf(args[i+1].c_str(), "%" SCNd64, &gid) == 1) {
                 parsed.gid = gid;
                 parsed.has_gid = true;
             } else {
-                printf("ParsePermArgs: invalid GID \"%s\"\n", args[i + 1]);
+                uiPrintf(state, "ParsePermArgs: invalid GID \"%s\"\n", args[i + 1].c_str());
                 bad++;
             }
             continue;
         }
-        if (strcmp("mode", args[i]) == 0) {
+        if (args[i] == "mode") {
             int32_t mode;
-            if (sscanf(args[i+1], "%" SCNi32, &mode) == 1) {
+            if (sscanf(args[i+1].c_str(), "%" SCNi32, &mode) == 1) {
                 parsed.mode = mode;
                 parsed.has_mode = true;
             } else {
-                printf("ParsePermArgs: invalid mode \"%s\"\n", args[i + 1]);
+                uiPrintf(state, "ParsePermArgs: invalid mode \"%s\"\n", args[i + 1].c_str());
                 bad++;
             }
             continue;
         }
-        if (strcmp("dmode", args[i]) == 0) {
+        if (args[i] == "dmode") {
             int32_t mode;
-            if (sscanf(args[i+1], "%" SCNi32, &mode) == 1) {
+            if (sscanf(args[i+1].c_str(), "%" SCNi32, &mode) == 1) {
                 parsed.dmode = mode;
                 parsed.has_dmode = true;
             } else {
-                printf("ParsePermArgs: invalid dmode \"%s\"\n", args[i + 1]);
+                uiPrintf(state, "ParsePermArgs: invalid dmode \"%s\"\n", args[i + 1].c_str());
                 bad++;
             }
             continue;
         }
-        if (strcmp("fmode", args[i]) == 0) {
+        if (args[i] == "fmode") {
             int32_t mode;
-            if (sscanf(args[i+1], "%" SCNi32, &mode) == 1) {
+            if (sscanf(args[i+1].c_str(), "%" SCNi32, &mode) == 1) {
                 parsed.fmode = mode;
                 parsed.has_fmode = true;
             } else {
-                printf("ParsePermArgs: invalid fmode \"%s\"\n", args[i + 1]);
+                uiPrintf(state, "ParsePermArgs: invalid fmode \"%s\"\n", args[i + 1].c_str());
                 bad++;
             }
             continue;
         }
-        if (strcmp("capabilities", args[i]) == 0) {
+        if (args[i] == "capabilities") {
             int64_t capabilities;
-            if (sscanf(args[i+1], "%" SCNi64, &capabilities) == 1) {
+            if (sscanf(args[i+1].c_str(), "%" SCNi64, &capabilities) == 1) {
                 parsed.capabilities = capabilities;
                 parsed.has_capabilities = true;
             } else {
-                printf("ParsePermArgs: invalid capabilities \"%s\"\n", args[i + 1]);
+                uiPrintf(state, "ParsePermArgs: invalid capabilities \"%s\"\n", args[i + 1].c_str());
                 bad++;
             }
             continue;
         }
-        if (strcmp("selabel", args[i]) == 0) {
-            if (args[i+1][0] != '\0') {
-                parsed.selabel = args[i+1];
+        if (args[i] == "selabel") {
+            if (!args[i + 1].empty()) {
+                parsed.selabel = args[i+1].c_str();
                 parsed.has_selabel = true;
             } else {
-                printf("ParsePermArgs: invalid selabel \"%s\"\n", args[i + 1]);
+                uiPrintf(state, "ParsePermArgs: invalid selabel \"%s\"\n", args[i + 1].c_str());
                 bad++;
             }
             continue;
         }
         if (max_warnings != 0) {
-            printf("ParsedPermArgs: unknown key \"%s\", ignoring\n", args[i]);
+            uiPrintf(state, "ParsedPermArgs: unknown key \"%s\", ignoring\n", args[i].c_str());
             max_warnings--;
             if (max_warnings == 0) {
-                printf("ParsedPermArgs: suppressing further warnings\n");
+                LOG(INFO) << "ParsedPermArgs: suppressing further warnings";
             }
         }
     }
@@ -632,15 +632,29 @@ static struct perm_parsed_args ParsePermArgs(int argc, char** args) {
 }
 
 static int ApplyParsedPerms(
+        State* state,
         const char* filename,
         const struct stat *statptr,
         struct perm_parsed_args parsed)
 {
     int bad = 0;
 
+    if (parsed.has_selabel) {
+        if (lsetfilecon(filename, parsed.selabel) != 0) {
+            uiPrintf(state, "ApplyParsedPerms: lsetfilecon of %s to %s failed: %s\n", filename,
+                     parsed.selabel, strerror(errno));
+            bad++;
+        }
+    }
+
+    /* ignore symlinks */
+    if (S_ISLNK(statptr->st_mode)) {
+        return bad;
+    }
+
     if (parsed.has_uid) {
         if (chown(filename, parsed.uid, -1) < 0) {
-            printf("ApplyParsedPerms: chown of %s to %d failed: %s\n",
+            uiPrintf(state, "ApplyParsedPerms: chown of %s to %d failed: %s\n",
                    filename, parsed.uid, strerror(errno));
             bad++;
         }
@@ -648,7 +662,7 @@ static int ApplyParsedPerms(
 
     if (parsed.has_gid) {
         if (chown(filename, -1, parsed.gid) < 0) {
-            printf("ApplyParsedPerms: chgrp of %s to %d failed: %s\n",
+            uiPrintf(state, "ApplyParsedPerms: chgrp of %s to %d failed: %s\n",
                    filename, parsed.gid, strerror(errno));
             bad++;
         }
@@ -656,7 +670,7 @@ static int ApplyParsedPerms(
 
     if (parsed.has_mode) {
         if (chmod(filename, parsed.mode) < 0) {
-            printf("ApplyParsedPerms: chmod of %s to %d failed: %s\n",
+            uiPrintf(state, "ApplyParsedPerms: chmod of %s to %d failed: %s\n",
                    filename, parsed.mode, strerror(errno));
             bad++;
         }
@@ -664,7 +678,7 @@ static int ApplyParsedPerms(
 
     if (parsed.has_dmode && S_ISDIR(statptr->st_mode)) {
         if (chmod(filename, parsed.dmode) < 0) {
-            printf("ApplyParsedPerms: chmod of %s to %d failed: %s\n",
+            uiPrintf(state, "ApplyParsedPerms: chmod of %s to %d failed: %s\n",
                    filename, parsed.dmode, strerror(errno));
             bad++;
         }
@@ -672,17 +686,8 @@ static int ApplyParsedPerms(
 
     if (parsed.has_fmode && S_ISREG(statptr->st_mode)) {
         if (chmod(filename, parsed.fmode) < 0) {
-            printf("ApplyParsedPerms: chmod of %s to %d failed: %s\n",
+            uiPrintf(state, "ApplyParsedPerms: chmod of %s to %d failed: %s\n",
                    filename, parsed.fmode, strerror(errno));
-            bad++;
-        }
-    }
-
-    if (parsed.has_selabel) {
-        // TODO: Don't silently ignore ENOTSUP
-        if (lsetfilecon(filename, parsed.selabel) && (errno != ENOTSUP)) {
-            printf("ApplyParsedPerms: lsetfilecon of %s to %s failed: %s\n",
-                   filename, parsed.selabel, strerror(errno));
             bad++;
         }
     }
@@ -691,7 +696,7 @@ static int ApplyParsedPerms(
         if (parsed.capabilities == 0) {
             if ((removexattr(filename, XATTR_NAME_CAPS) == -1) && (errno != ENODATA)) {
                 // Report failure unless it's ENODATA (attribute not set)
-                printf("ApplyParsedPerms: removexattr of %s to %" PRIx64 " failed: %s\n",
+                uiPrintf(state, "ApplyParsedPerms: removexattr of %s to %" PRIx64 " failed: %s\n",
                        filename, parsed.capabilities, strerror(errno));
                 bad++;
             }
@@ -704,7 +709,7 @@ static int ApplyParsedPerms(
             cap_data.data[1].permitted = (uint32_t) (parsed.capabilities >> 32);
             cap_data.data[1].inheritable = 0;
             if (setxattr(filename, XATTR_NAME_CAPS, &cap_data, sizeof(cap_data), 0) < 0) {
-                printf("ApplyParsedPerms: setcap of %s to %" PRIx64 " failed: %s\n",
+                uiPrintf(state, "ApplyParsedPerms: setcap of %s to %" PRIx64 " failed: %s\n",
                        filename, parsed.capabilities, strerror(errno));
                 bad++;
             }
@@ -717,10 +722,11 @@ static int ApplyParsedPerms(
 // nftw doesn't allow us to pass along context, so we need to use
 // global variables.  *sigh*
 static struct perm_parsed_args recursive_parsed_args;
+static State* recursive_state;
 
 static int do_SetMetadataRecursive(const char* filename, const struct stat *statptr,
         int fileflags, struct FTW *pfwt) {
-    return ApplyParsedPerms(filename, statptr, recursive_parsed_args);
+    return ApplyParsedPerms(recursive_state, filename, statptr, recursive_parsed_args);
 }
 
 static Value* SetMetadataFn(const char* name, State* state, const std::vector<std::unique_ptr<Expr>>& argv) {
@@ -732,44 +738,37 @@ static Value* SetMetadataFn(const char* name, State* state, const std::vector<st
 
     bool recursive = (strcmp(name, "set_metadata_recursive") == 0);
 
-    if ((argc % 2) != 1) {
+    if ((argv.size() % 2) != 1) {
         return ErrorAbort(state, kArgsParsingFailure, "%s() expects an odd number of arguments, got %d",
-                          name, argc);
+                          name, argv.size());
     }
 
-    char** args = ReadVarArgs(state, argc, argv);
-    if (args == NULL) return NULL;
-
-    if (lstat(args[0], &sb) == -1) {
-        result = ErrorAbort(state, kFileGetPropFailure, "%s: Error on lstat of \"%s\": %s", name, args[0], strerror(errno));
-        goto done;
+    std::vector<std::string> args;
+    if (!ReadArgs(state, argv, &args)) {
+        return ErrorAbort(state, kArgsParsingFailure, "%s() failed to parse the argument(s)", name);
     }
 
-    struct perm_parsed_args parsed = ParsePermArgs(argc, args);
+    if (lstat(args[0].c_str(), &sb) == -1) {
+        return ErrorAbort(state, kFileGetPropFailure, "%s: Error on lstat of \"%s\": %s", name, args[0].c_str(), strerror(errno));
+    }
+
+    struct perm_parsed_args parsed = ParsePermArgs(state, args);
 
     if (recursive) {
         recursive_parsed_args = parsed;
-        bad += nftw(args[0], do_SetMetadataRecursive, 30, FTW_CHDIR | FTW_DEPTH | FTW_PHYS);
+        recursive_state = state;
+        bad += nftw(args[0].c_str(), do_SetMetadataRecursive, 30, FTW_CHDIR | FTW_DEPTH | FTW_PHYS);
         memset(&recursive_parsed_args, 0, sizeof(recursive_parsed_args));
+        recursive_state = NULL;
     } else {
-        bad += ApplyParsedPerms(args[0], &sb, parsed);
-    }
-
-done:
-    for (i = 0; i < argc; ++i) {
-        free(args[i]);
-    }
-    free(args);
-
-    if (result != NULL) {
-        return result;
+        bad += ApplyParsedPerms(state, args[0].c_str(), &sb, parsed);
     }
 
     if (bad > 0) {
         return ErrorAbort(state, kSetMetadataFailure, "%s: some changes failed", name);
     }
 
-    return StringValue(strdup(""));
+    return StringValue("");
 }
 
 Value* GetPropFn(const char* name, State* state, const std::vector<std::unique_ptr<Expr>>& argv) {
