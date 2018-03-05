@@ -1081,6 +1081,7 @@ std::string TWFunc::to_string(unsigned long value) {
 	return os.str();
 }
 
+#ifndef TW_KEEP_STOCK_RECOVERY
 void TWFunc::Disable_Stock_Recovery_Replace(void) {
 	if (PartitionManager.Mount_By_Path("/system", false)) {
 		// Disable flashing of stock recovery
@@ -1092,6 +1093,7 @@ void TWFunc::Disable_Stock_Recovery_Replace(void) {
 		PartitionManager.UnMount_By_Path("/system", false);
 	}
 }
+#endif
 
 unsigned long long TWFunc::IOCTL_Get_Block_Size(const char* block_device) {
 	unsigned long block_device_size;

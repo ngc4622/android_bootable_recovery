@@ -354,8 +354,10 @@ int main(int argc, char **argv) {
 	gui_start();
 
 #ifndef TW_OEM_BUILD
+#ifndef TW_KEEP_STOCK_RECOVERY
 	// Disable flashing of stock recovery
 	TWFunc::Disable_Stock_Recovery_Replace();
+#endif
 	// Check for su to see if the device is rooted or not
 	if (DataManager::GetIntValue("tw_mount_system_ro") == 0 && PartitionManager.Mount_By_Path("/system", false)) {
 		// read /system/build.prop to get sdk version and do not offer to root if running M or higher (sdk version 23 == M)

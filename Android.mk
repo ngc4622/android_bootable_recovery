@@ -490,6 +490,10 @@ ifeq ($(BOARD_CACHEIMAGE_PARTITION_SIZE),)
 LOCAL_REQUIRED_MODULES := recovery-persist recovery-refresh
 endif
 
+ifeq ($(TW_KEEP_STOCK_RECOVERY), true)
+    LOCAL_CFLAGS += -DTW_KEEP_STOCK_RECOVERY
+endif
+
 include $(BUILD_EXECUTABLE)
 
 # Symlink for file_contexts
