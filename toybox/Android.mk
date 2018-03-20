@@ -220,15 +220,22 @@ LOCAL_SRC_FILES += \
     toys/posix/ps.c \
     toys/posix/ulimit.c
 
-ifeq ($(shell test $(PLATFORM_SDK_VERSION) -gt 25; echo $$?),0)
-# Android 8.0 had some tools in different paths
-LOCAL_SRC_FILES += \
-    toys/pending/dmesg.c \
-    toys/net/ftpget.c
+# Lineage toybox has these tools in different paths
+ifeq ($(LINEAGE_BUILD),)
+    ifeq ($(shell test $(PLATFORM_SDK_VERSION) -gt 25; echo $$?),0)
+    # Android 8.0 had some tools in different paths
+        LOCAL_SRC_FILES += \
+            toys/pending/dmesg.c \
+            toys/net/ftpget.c
+    else
+        LOCAL_SRC_FILES += \
+            toys/lsb/dmesg.c \
+            toys/pending/ftpget.c
+    endif
 else
-LOCAL_SRC_FILES += \
-    toys/lsb/dmesg.c \
-    toys/pending/ftpget.c
+    LOCAL_SRC_FILES += \
+        toys/lsb/dmesg.c \
+        toys/net/ftpget.c
 endif
 
 # Account for master branch changes pulld into CM14.1
@@ -265,7 +272,7 @@ LOCAL_SRC_FILES += \
     toys/net/netstat.c \
     toys/net/rfkill.c \
     toys/net/tunctl.c \
-    toys/pending/chrt.c \
+    toys/other/chrt.c \
     toys/pending/getfattr.c \
     toys/pending/modprobe.c \
     toys/pending/setfattr.c \
