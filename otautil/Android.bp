@@ -37,6 +37,10 @@ cc_library_static {
         "-Wall",
     ],
 
+    include_dirs: [
+        "system/core/libziparchive/include",
+    ],
+
     export_include_dirs: [
         "include",
     ],
